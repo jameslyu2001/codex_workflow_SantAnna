@@ -1,0 +1,43 @@
+# Global safety policy adapted from the upstream git guardrails.
+
+prefix_rule(
+    pattern = ["git", "reset", "--hard"],
+    decision = "forbidden",
+    justification = "Use a recoverable Git operation or obtain explicit user authorization for history/data destruction.",
+    match = ["git reset --hard", "git reset --hard HEAD~1"],
+)
+
+prefix_rule(
+    pattern = ["git", "clean", "-f"],
+    decision = "forbidden",
+    justification = "Inspect untracked files first and use a recoverable cleanup method.",
+    match = ["git clean -f", "git clean -f -d"],
+)
+
+prefix_rule(
+    pattern = ["git", "clean", "-fd"],
+    decision = "forbidden",
+    justification = "Inspect untracked files first and use a recoverable cleanup method.",
+    match = ["git clean -fd"],
+)
+
+prefix_rule(
+    pattern = ["git", "push", "--force"],
+    decision = "prompt",
+    justification = "Force-pushing rewrites remote history and requires explicit confirmation.",
+    match = ["git push --force", "git push --force origin main"],
+)
+
+prefix_rule(
+    pattern = ["git", "push", "-f"],
+    decision = "prompt",
+    justification = "Force-pushing rewrites remote history and requires explicit confirmation.",
+    match = ["git push -f", "git push -f origin main"],
+)
+
+prefix_rule(
+    pattern = ["git", "add", "-A"],
+    decision = "prompt",
+    justification = "Review and stage an explicit file set so unrelated user changes are not included accidentally.",
+    match = ["git add -A"],
+)
