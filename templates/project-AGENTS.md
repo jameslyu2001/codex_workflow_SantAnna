@@ -14,6 +14,15 @@
 - Preserve source-to-output provenance for every reported numerical result.
 - Never edit raw data in place. Write cleaned and derived data to documented output locations.
 - Keep generated files out of source directories unless this repository explicitly tracks them.
+- Treat `.codex/academic-workflow.json` as the opt-in marker for the global academic hooks. Do not remove it unless this repository should leave the workflow.
+
+## Working structure
+
+- `scripts/`: reproducible analysis, validation, compilation, and deployment commands.
+- `quality_reports/`: plans, audits, checkpoints, diagnostics, preregistrations, claim passports, and session evidence.
+- `explorations/`: explicitly provisional work that is not yet a production result.
+- `MEMORY.md`: verified project facts and decisions; personal or machine-specific lessons do not belong here.
+- `master_supporting_docs/`: source papers or slides used as inputs, subject to repository data and copyright policy.
 
 ## Verification
 
@@ -33,3 +42,5 @@ Slides build:      [command]
 Analysis:          [command]
 Tests/checks:      [command]
 ```
+
+Remove commands that do not apply. Add the real working directory, required environment, expected outputs, and success criteria for each retained command.
