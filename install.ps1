@@ -1,23 +1,29 @@
 [CmdletBinding()]
 param(
     [string]$SourcePath,
+    [string]$InstallRoot,
     [string]$RepositoryUrl = "https://github.com/pedrohcgs/claude-code-my-workflow.git",
     [string]$RepositoryRef = "be53c12f235996dff41fb7f21580506fd2dd8d50",
     [switch]$BypassGitHubProxy,
-    [switch]$SkipGlobalAgentsBlock
+    [switch]$SkipGlobalAgentsBlock,
+    [switch]$SkipHooks,
+    [switch]$SkipCliUiDefaults
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$UserProfilePath = [Environment]::GetFolderPath("UserProfile")
-$CodexHomePath = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $UserProfilePath ".codex" }
+$UserProfilePath = if ($InstallRoot) { [IO.Path]::GetFullPath($InstallRoot) } else { [Environment]::GetFolderPath("UserProfile") }
+$CodexHomePath = if ($InstallRoot) { Join-Path $UserProfilePath ".codex" } elseif ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $UserProfilePath ".codex" }
 $UserSkillsPath = Join-Path $UserProfilePath ".agents\skills"
 $VendorPath = Join-Path $CodexHomePath "vendor\academic-workflow"
 $GlobalAgentsPath = Join-Path $CodexHomePath "AGENTS.md"
 $GlobalAgentsOverridePath = Join-Path $CodexHomePath "AGENTS.override.md"
 $GlobalCustomAgentsPath = Join-Path $CodexHomePath "agents"
 $GlobalRulesPath = Join-Path $CodexHomePath "rules"
+$GlobalHooksPath = Join-Path $CodexHomePath "hooks\academic-workflow"
+$GlobalHooksConfigPath = Join-Path $CodexHomePath "hooks.json"
+$GlobalConfigPath = Join-Path $CodexHomePath "config.toml"
 $Timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $BackupPath = Join-Path $CodexHomePath "backups\academic-workflow\$Timestamp"
 $PackageRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -68,7 +74,15 @@ function Backup-File {
     param([Parameter(Mandatory)][string]$Path)
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return }
     Ensure-Directory $BackupPath
-    $SafeName = ($Path -replace "[:\\/]", "_").TrimStart("_")
+    $Hasher = [Security.Cryptography.SHA256]::Create()
+    try {
+        $PathBytes = [Text.Encoding]::UTF8.GetBytes([IO.Path]::GetFullPath($Path).ToLowerInvariant())
+        $PathHash = ([BitConverter]::ToString($Hasher.ComputeHash($PathBytes)) -replace '-', '').Substring(0, 12).ToLowerInvariant()
+    } finally {
+        $Hasher.Dispose()
+    }
+    $LeafName = ([IO.Path]::GetFileName($Path) -replace '[^A-Za-z0-9._-]', '_')
+    $SafeName = "$PathHash-$LeafName"
     Copy-Item -LiteralPath $Path -Destination (Join-Path $BackupPath $SafeName) -Force
 }
 
@@ -94,7 +108,7 @@ function Convert-ClaudeText {
     )
 
     $Converted = $Text
-    $Converted = $Converted.Replace('$ARGUMENTS', "the arguments and context supplied by the user")
+    $Converted = $Converted.Replace('$ARGUMENTS', "<user-input>")
     $Converted = $Converted.Replace('$CLAUDE_PROJECT_DIR', "the current Git repository root")
     $Converted = $Converted.Replace(".claude/rules/", "../academic-workflow-core/references/rules/")
     $Converted = $Converted.Replace("../../rules/", "../academic-workflow-core/references/rules/")
@@ -104,22 +118,49 @@ function Convert-ClaudeText {
     $Converted = $Converted.Replace("Task tool", "Codex subagent tools")
     $Converted = $Converted.Replace("via Task", "with a Codex subagent")
     $Converted = $Converted.Replace('`Task`', "Codex subagent delegation")
+    $Converted = $Converted.Replace("Grep / Read / Glob", "search and read the cited files")
+    $Converted = $Converted.Replace("Glob/Read", "file search and reading")
+    $Converted = $Converted.Replace('`Glob`/`Read`', "file search and reading")
+    $Converted = $Converted.Replace("AskUserQuestion", "ask the user")
+    $Converted = $Converted.Replace("Monitor tool", "Codex background-process monitoring or wait tools")
+    $Converted = $Converted.Replace("the Monitor tool", "Codex background-process monitoring or wait tools")
+    $Converted = $Converted.Replace('`run_in_background: true`', "background execution enabled")
+    $Converted = $Converted.Replace("run_in_background: true", "background execution enabled")
+    $Converted = $Converted.Replace('the `bash_id`', "the returned process identifier")
+    $Converted = $Converted.Replace("Anthropic's **Codex background-process monitoring or wait tools**", "Codex background-process monitoring or wait tools")
+    $Converted = $Converted.Replace("via Bash", "using the available background-process mechanism")
+    $Converted = $Converted.Replace("using Bash", "using the available background-process mechanism")
+    $Converted = $Converted.Replace("context: fork", "fork_turns: none")
+    $Converted = $Converted.Replace("context=fork", 'fork_turns="none"')
+    $Converted = $Converted.Replace("subagent_type=", "agent_type=")
     $Converted = $Converted.Replace("WebSearch", "web search")
     $Converted = $Converted.Replace("WebFetch", "page retrieval")
-    $Converted = $Converted.Replace("Opus", "a high-judgment Codex model")
-    $Converted = $Converted.Replace("Sonnet", "a balanced Codex model")
-    $Converted = $Converted.Replace("Haiku", "a fast Codex model")
+    $Converted = [regex]::Replace($Converted, '\bOpus(?:\s+\d+(?:\.\d+)*)?', 'the configured high-judgment Codex model')
+    $Converted = [regex]::Replace($Converted, '\bSonnet(?:\s+\d+(?:\.\d+)*)?', 'the configured balanced Codex model')
+    $Converted = [regex]::Replace($Converted, '\bHaiku(?:\s+\d+(?:\.\d+)*)?', 'the configured fast Codex model')
+    $Converted = $Converted.Replace('`Glob`', 'file search')
+    $Converted = $Converted.Replace('`Grep`', 'text search')
+    $Converted = $Converted.Replace('`Read`', 'file reading')
+    $Converted = $Converted.Replace('`Write`', 'file writing')
+    $Converted = $Converted.Replace('`Edit`', 'file editing')
+    $Converted = $Converted.Replace('`MultiEdit`', 'file editing')
+    $Converted = $Converted.Replace('`Bash`', 'the shell')
     $Converted = $Converted.Replace("[Claude Code](https://claude.com/claude-code)", "Codex")
     $Converted = $Converted.Replace("Claude Code", "Codex")
+    $Converted = [regex]::Replace($Converted, '(?<![A-Za-z0-9_-])claude\s+--continue\b', 'codex resume --last', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    $Converted = [regex]::Replace($Converted, '(?<![A-Za-z0-9_-])claude\s+-p\b', 'codex exec', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    $Converted = [regex]::Replace($Converted, '(?<![A-Za-z0-9_-])claude\s+mcp\b', 'codex mcp', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    $Converted = [regex]::Replace($Converted, '\bClaude\b', 'Codex')
     $Converted = $Converted.Replace("CLAUDE.md", "AGENTS.md")
     $Converted = $Converted.Replace(".claude/state/personal-memory.md", "~/.codex/academic-workflow-state/personal-memory.md")
     $Converted = $Converted.Replace(".claude/state/", "~/.codex/academic-workflow-state/")
-    $Converted = $Converted.Replace("PreCompact hook", "context-pressure handoff")
-    $Converted = $Converted.Replace("the PreCompact hook", "a context-pressure handoff")
+    $Converted = $Converted.Replace("CLAUDE_STRICT_PATHS", "CODEX_ACADEMIC_STRICT_PATHS")
+    $Converted = $Converted.Replace("CLAUDE_COMPILE_GATE", "CODEX_ACADEMIC_COMPILE_GATE")
+    $Converted = $Converted.Replace("CLAUDE_PRECOMPACT_BLOCK_ON_DRAFT", "CODEX_ACADEMIC_PRECOMPACT_BLOCK_ON_DRAFT")
     $Converted = [regex]::Replace(
         $Converted,
         '(?m)^- `\.claude/hooks/pre-compact\.py`.*$',
-        '- Run `$academic-workflow-compress-session` before a long-session handoff or when context pressure becomes apparent.'
+        '- The Codex-native PreCompact hook records plan and session state; use `$academic-workflow-compress-session` for an explicit durable handoff.'
     )
     $Converted = [regex]::Replace(
         $Converted,
@@ -130,12 +171,12 @@ function Convert-ClaudeText {
     $Converted = [regex]::Replace(
         $Converted,
         '\[`?\.claude/agents/([a-z0-9-]+)\.md`?\]\((?:\.\./)+agents/\1\.md\)',
-        { param($Match) "academic_" + $Match.Groups[1].Value.Replace("-", "_") + " custom agent" }
+        { param($Match) '`academic_' + $Match.Groups[1].Value.Replace("-", "_") + '` custom agent' }
     )
     $Converted = [regex]::Replace(
         $Converted,
         '(?:\.claude/agents/|(?:\.\./)+agents/)([a-z0-9-]+)\.md',
-        { param($Match) "academic_" + $Match.Groups[1].Value.Replace("-", "_") + " custom agent" }
+        { param($Match) '`academic_' + $Match.Groups[1].Value.Replace("-", "_") + '` custom agent' }
     )
     $Converted = [regex]::Replace(
         $Converted,
@@ -149,9 +190,26 @@ function Convert-ClaudeText {
     )
     $Converted = $Converted.Replace(".claude/skills/", "~/.agents/skills/")
     $Converted = $Converted.Replace(".claude/agents/", "~/.codex/agents/")
-    $Converted = $Converted.Replace(".claude/hooks/", "upstream hook script ")
+    $Converted = $Converted.Replace(".claude/hooks/", "~/.codex/hooks/academic-workflow/")
+    $Converted = $Converted.Replace(".claude/output-styles/academic-writing.md", '$academic-workflow-style-academic-writing')
+    $Converted = $Converted.Replace(".claude/output-styles/referee.md", '$academic-workflow-style-referee')
     $Converted = $Converted.Replace(".claude/settings.local.json", ".codex/config.toml")
     $Converted = $Converted.Replace(".claude/settings.json", "~/.codex/config.toml")
+
+    foreach ($AgentBaseName in @(
+        'beamer-translator', 'claim-verifier', 'domain-referee', 'domain-reviewer', 'editor',
+        'humanize-auditor', 'methods-referee', 'pedagogy-reviewer', 'promote-memory-council',
+        'proofreader', 'quarto-critic', 'quarto-fixer', 'r-package-reviewer', 'r-reviewer',
+        'sim-reviewer', 'slide-auditor', 'tikz-reviewer', 'verifier'
+    )) {
+        $CodexAgentName = 'academic_' + $AgentBaseName.Replace('-', '_')
+        $Converted = $Converted.Replace('`' + $AgentBaseName + '`', '`' + $CodexAgentName + '`')
+        $Converted = $Converted.Replace($AgentBaseName + '.md', $CodexAgentName + '.toml')
+        $Converted = $Converted.Replace('agent_type=' + $AgentBaseName, 'agent_type=' + $CodexAgentName)
+        $Converted = $Converted.Replace($AgentBaseName + ' agent', '`' + $CodexAgentName + '` custom agent')
+        $Converted = $Converted.Replace($AgentBaseName + ' subagent', '`' + $CodexAgentName + '` custom agent')
+        $Converted = $Converted.Replace('(' + $AgentBaseName + ')', '(`' + $CodexAgentName + '`)')
+    }
 
     foreach ($SkillName in $SkillNames) {
         $Converted = $Converted.Replace("../$SkillName/", "../academic-workflow-$SkillName/")
@@ -215,6 +273,7 @@ function Install-CoreSkill {
     $AssetsPath = Join-Path $CorePath "assets"
     Ensure-Directory (Join-Path $ReferencesPath "rules")
     Ensure-Directory (Join-Path $ReferencesPath "upstream")
+    Ensure-Directory (Join-Path $ReferencesPath "codex")
     Ensure-Directory (Join-Path $AssetsPath "templates")
 
     $CoreSkill = @'
@@ -293,6 +352,10 @@ Load only the relevant files under `references/` for the current task. Project-s
         Write-Utf8Text -Path $AssetFile.FullName -Value $AssetText
     }
     Copy-Item -LiteralPath (Join-Path $PackageRoot "templates\codex-skill-template.md") -Destination (Join-Path $AssetsPath "templates\skill-template.md") -Force
+    $CodexReferences = Join-Path $PackageRoot "templates\codex-references"
+    if (Test-Path -LiteralPath $CodexReferences -PathType Container) {
+        Copy-Item -Path (Join-Path $CodexReferences "*") -Destination (Join-Path $ReferencesPath "codex") -Recurse -Force
+    }
 
     foreach ($ReferenceFile in Get-ChildItem -LiteralPath $ReferencesPath -Recurse -Filter "*.md" -File) {
         $Original = Get-Content -LiteralPath $ReferenceFile.FullName -Raw -Encoding utf8
@@ -306,7 +369,7 @@ Load only the relevant files under `references/` for the current task. Project-s
         $ConvertedReference = [regex]::Replace(
             $ConvertedReference,
             '\[[^\]]+\]\(\.\./hooks/([^)]+)\)',
-            { param($Match) '`upstream hook ' + $Match.Groups[1].Value + '` (not installed)' }
+            { param($Match) '`Codex hook ' + $Match.Groups[1].Value + '` under `~/.codex/hooks/academic-workflow/`' }
         )
         $ConvertedReference = [regex]::Replace(
             $ConvertedReference,
@@ -328,7 +391,7 @@ Load only the relevant files under `references/` for the current task. Project-s
         }
 
         if ($ConvertedReference -ne $Original) {
-            $ReferenceNote = '> Codex port note: This reference was adapted from the upstream Claude workflow. Use active Codex configuration under `~/.codex`, user skills under `~/.agents/skills`, and the named `academic_*` custom agents. Any hook-specific discussion is methodological or upstream background unless a Codex hook is explicitly installed.' + [Environment]::NewLine + [Environment]::NewLine
+            $ReferenceNote = '> Codex port note: This reference was adapted from the upstream workflow. Use active Codex configuration under `~/.codex`, user skills under `~/.agents/skills`, native hooks under `~/.codex/hooks/academic-workflow`, and the named `academic_*` custom agents.' + [Environment]::NewLine + [Environment]::NewLine
             $ConvertedReference = $ReferenceNote + $ConvertedReference
         }
         Write-Utf8Text -Path $ReferenceFile.FullName -Value $ConvertedReference
@@ -363,7 +426,7 @@ function Install-ConvertedSkills {
         $Body = Remove-Frontmatter $Original
         $Body = Convert-ClaudeText -Text $Body -SkillNames $SkillNames
         $DescriptionJson = ConvertTo-Json ("Codex port: " + $Description) -Compress
-        $Compatibility = '> Codex port note: invoke this skill as $' + $DestinationName + '. Use Codex filesystem, shell, web, planning, and subagent tools rather than Claude-specific tool names. Resolve relative project paths from the current Git repository. If an optional upstream reference or project asset is absent, report it and continue with the parts that can be verified.' + [Environment]::NewLine + [Environment]::NewLine
+        $Compatibility = '> Codex port note: invoke this skill as $' + $DestinationName + '. Treat `<user-input>` as a placeholder for the relevant value from the user prompt and substitute the actual value before running commands. Use the current operating system''s shell syntax and Codex filesystem, web, planning, background-process, and subagent tools. Resolve relative project paths from the current Git repository. If an optional upstream reference or project asset is absent, report it and continue with the parts that can be verified.' + [Environment]::NewLine + [Environment]::NewLine
         $Converted = "---`nname: $DestinationName`ndescription: $DescriptionJson`n---`n`n" + $Compatibility + $Body
         Write-Utf8Text -Path (Join-Path $DestinationPath "SKILL.md") -Value $Converted
     }
@@ -412,6 +475,123 @@ function Install-CodexSkillOverrides {
     }
 }
 
+function Install-CodexOnlySkills {
+    $SourceRoot = Join-Path $PackageRoot "templates\codex-only-skills"
+    if (-not (Test-Path -LiteralPath $SourceRoot -PathType Container)) { return }
+
+    foreach ($SkillDirectory in Get-ChildItem -LiteralPath $SourceRoot -Directory | Sort-Object Name) {
+        $SkillFile = Join-Path $SkillDirectory.FullName "SKILL.md"
+        if (-not (Test-Path -LiteralPath $SkillFile -PathType Leaf)) { continue }
+        $Destination = Join-Path $UserSkillsPath $SkillDirectory.Name
+        Ensure-Directory $Destination
+        Copy-Item -Path (Join-Path $SkillDirectory.FullName "*") -Destination $Destination -Recurse -Force
+    }
+}
+
+function Test-AcademicHookGroup {
+    param([Parameter(Mandatory)]$Group)
+    if (-not $Group -or -not $Group.PSObject.Properties['hooks']) { return $false }
+    foreach ($Handler in @($Group.PSObject.Properties['hooks'].Value)) {
+        $Commands = @()
+        foreach ($PropertyName in @('command', 'commandWindows', 'command_windows')) {
+            $Property = $Handler.PSObject.Properties[$PropertyName]
+            if ($Property -and $Property.Value) { $Commands += $Property.Value }
+        }
+        foreach ($Command in $Commands) {
+            if ($Command -match '[\\/]academic-workflow[\\/]') { return $true }
+        }
+    }
+    return $false
+}
+
+function Install-CodexHooks {
+    if ($SkipHooks) { return }
+
+    $HookSource = Join-Path $PackageRoot "templates\hooks"
+    if (-not (Test-Path -LiteralPath $HookSource -PathType Container)) {
+        throw "Hook templates are missing: $HookSource"
+    }
+
+    Ensure-Directory $GlobalHooksPath
+    foreach ($HookFile in Get-ChildItem -LiteralPath $HookSource -File | Sort-Object Name) {
+        $Destination = Join-Path $GlobalHooksPath $HookFile.Name
+        Backup-File $Destination
+        Copy-Item -LiteralPath $HookFile.FullName -Destination $Destination -Force
+    }
+
+    Backup-File $GlobalHooksConfigPath
+    if (Test-Path -LiteralPath $GlobalHooksConfigPath -PathType Leaf) {
+        $HooksConfig = Get-Content -LiteralPath $GlobalHooksConfigPath -Raw -Encoding utf8 | ConvertFrom-Json
+    } else {
+        $HooksConfig = [pscustomobject]@{ description = "User-level Codex hooks"; hooks = [pscustomobject]@{} }
+    }
+    if (-not $HooksConfig.PSObject.Properties['hooks']) {
+        $HooksConfig | Add-Member -MemberType NoteProperty -Name hooks -Value ([pscustomobject]@{})
+    }
+
+    $Python = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $Python) { $Python = Get-Command py -ErrorAction SilentlyContinue }
+    if (-not $Python) {
+        throw "Python 3 is required for the Codex academic workflow hooks. Install Python, or rerun with -SkipHooks."
+    }
+    $PythonCommand = if ($Python.Name -eq 'py.exe' -or $Python.Name -eq 'py') { 'py -3' } else { '"' + $Python.Source + '"' }
+    $PosixRoot = '$HOME/.codex/hooks/academic-workflow'
+
+    $Definitions = @(
+        [pscustomobject]@{ Event = 'PreToolUse'; Matcher = '^(Bash|apply_patch|Edit|Write)$'; Script = 'git_guardrails.py'; Status = 'Checking academic workflow guardrails'; Timeout = 10 },
+        [pscustomobject]@{ Event = 'PostToolUse'; Matcher = '^(apply_patch|Edit|Write)$'; Script = 'claim_reconcile.py'; Status = 'Checking tracked claim provenance'; Timeout = 10 },
+        [pscustomobject]@{ Event = 'PreCompact'; Matcher = '^(manual|auto)$'; Script = 'pre_compact.py'; Status = 'Saving academic workflow state'; Timeout = 10 },
+        [pscustomobject]@{ Event = 'SessionStart'; Matcher = '^(compact|resume)$'; Script = 'post_compact_restore.py'; Status = 'Restoring academic workflow state'; Timeout = 10 },
+        [pscustomobject]@{ Event = 'Stop'; Matcher = $null; Script = 'session_log.py'; Status = 'Updating the academic session log'; Timeout = 15 }
+    )
+
+    foreach ($Definition in $Definitions) {
+        $ScriptPath = Join-Path $GlobalHooksPath $Definition.Script
+        $Handler = [ordered]@{
+            type = 'command'
+            command = 'python3 "' + $PosixRoot + '/' + $Definition.Script + '"'
+            commandWindows = $PythonCommand + ' "' + $ScriptPath + '"'
+            timeout = $Definition.Timeout
+            statusMessage = $Definition.Status
+            additionalContextLimit = 2500
+        }
+        $Group = [ordered]@{ hooks = @([pscustomobject]$Handler) }
+        if ($Definition.Matcher) { $Group = [ordered]@{ matcher = $Definition.Matcher; hooks = @([pscustomobject]$Handler) } }
+
+        $Property = $HooksConfig.hooks.PSObject.Properties[$Definition.Event]
+        $Existing = if ($Property) { @($Property.Value) } else { @() }
+        $Preserved = @($Existing | Where-Object { -not (Test-AcademicHookGroup $_) })
+        $Updated = @($Preserved + [pscustomobject]$Group)
+        if ($Property) {
+            $Property.Value = $Updated
+        } else {
+            $HooksConfig.hooks | Add-Member -MemberType NoteProperty -Name $Definition.Event -Value $Updated
+        }
+    }
+
+    Write-Utf8Text -Path $GlobalHooksConfigPath -Value ($HooksConfig | ConvertTo-Json -Depth 20)
+}
+
+function Install-CliUiDefaults {
+    if ($SkipCliUiDefaults) { return }
+    $StatusLine = 'status_line = ["model-with-reasoning", "context-remaining", "git-branch", "current-dir"]'
+    if (Test-Path -LiteralPath $GlobalConfigPath -PathType Leaf) {
+        $ConfigText = Get-Content -LiteralPath $GlobalConfigPath -Raw -Encoding utf8
+        if ([regex]::IsMatch($ConfigText, '(?m)^\s*status_line\s*=')) { return }
+        Backup-File $GlobalConfigPath
+        $TuiMatch = [regex]::Match($ConfigText, '(?m)^\[tui\]\s*$')
+        if ($TuiMatch.Success) {
+            $InsertAt = $TuiMatch.Index + $TuiMatch.Length
+            $ConfigText = $ConfigText.Insert($InsertAt, [Environment]::NewLine + '# Added by the Codex academic workflow installer.' + [Environment]::NewLine + $StatusLine)
+        } else {
+            $ConfigText = $ConfigText.TrimEnd() + [Environment]::NewLine + [Environment]::NewLine + '[tui]' + [Environment]::NewLine + '# Added by the Codex academic workflow installer.' + [Environment]::NewLine + $StatusLine + [Environment]::NewLine
+        }
+    } else {
+        $ConfigText = '[tui]' + [Environment]::NewLine + '# Added by the Codex academic workflow installer.' + [Environment]::NewLine + $StatusLine + [Environment]::NewLine
+    }
+    Write-Utf8Text -Path $GlobalConfigPath -Value $ConfigText
+}
+
 function Install-PersonalWorkflowState {
     $StateRoot = Join-Path $CodexHomePath "academic-workflow-state"
     $MemoryPath = Join-Path $StateRoot "personal-memory.md"
@@ -442,60 +622,17 @@ function Install-ProjectInitializer {
     Ensure-Directory $AssetsPath
     Ensure-Directory $ScriptsPath
     Copy-Item -LiteralPath (Join-Path $PackageRoot "templates\project-AGENTS.md") -Destination (Join-Path $AssetsPath "project-AGENTS.md") -Force
-
-    $EscapedSource = $SourceRoot.Replace("'", "''")
-    $EscapedCoreTemplates = (Join-Path $UserSkillsPath "academic-workflow-core\assets\templates").Replace("'", "''")
-    $InitScript = @"
-[CmdletBinding()]
-param([string]`$ProjectPath = (Get-Location).Path)
-Set-StrictMode -Version Latest
-`$ErrorActionPreference = "Stop"
-`$SourceRoot = '$EscapedSource'
-`$CoreTemplatesRoot = '$EscapedCoreTemplates'
-`$ProjectRoot = (Resolve-Path -LiteralPath `$ProjectPath).Path
-`$SkillRoot = Split-Path -Parent (Split-Path -Parent `$MyInvocation.MyCommand.Path)
-
-`$Directories = @("Preambles", "templates", "scripts", "Figures", "Slides", "Quarto", "master_supporting_docs")
-foreach (`$Name in `$Directories) {
-    `$Destination = Join-Path `$ProjectRoot `$Name
-    if (`$Name -eq "scripts") {
-        if (-not (Test-Path -LiteralPath `$Destination)) {
-            New-Item -ItemType Directory -Path `$Destination | Out-Null
-            Write-Host "Created empty scripts directory"
-        } else {
-            Write-Host "Preserved existing scripts"
-        }
-        continue
+    Copy-Item -LiteralPath (Join-Path $PackageRoot "templates\project-MEMORY.md") -Destination (Join-Path $AssetsPath "project-MEMORY.md") -Force
+    $ProjectScriptsSource = Join-Path $PackageRoot "templates\project-scripts"
+    $ProjectScriptsDestination = Join-Path $AssetsPath "project-scripts"
+    Ensure-Directory $ProjectScriptsDestination
+    if (Test-Path -LiteralPath $ProjectScriptsSource -PathType Container) {
+        Copy-Item -Path (Join-Path $ProjectScriptsSource "*") -Destination $ProjectScriptsDestination -Recurse -Force
     }
-    `$Source = if (`$Name -eq "templates") { `$CoreTemplatesRoot } else { Join-Path `$SourceRoot `$Name }
-    if ((Test-Path -LiteralPath `$Source) -and -not (Test-Path -LiteralPath `$Destination)) {
-        Copy-Item -LiteralPath `$Source -Destination `$Destination -Recurse
-        Write-Host "Created `$Name"
-    } elseif (Test-Path -LiteralPath `$Destination) {
-        Write-Host "Preserved existing `$Name"
-    }
-}
 
-foreach (`$Name in @("quality_reports", "explorations")) {
-    `$Destination = Join-Path `$ProjectRoot `$Name
-    if (-not (Test-Path -LiteralPath `$Destination)) {
-        New-Item -ItemType Directory -Path `$Destination | Out-Null
-    }
-}
-
-`$AgentsTemplate = Get-Content -LiteralPath (Join-Path `$SkillRoot "assets\project-AGENTS.md") -Raw -Encoding utf8
-`$AgentsDestination = Join-Path `$ProjectRoot "AGENTS.md"
-if (-not (Test-Path -LiteralPath `$AgentsDestination)) {
-    `$Utf8NoBom = New-Object Text.UTF8Encoding(`$false)
-    [IO.File]::WriteAllText(`$AgentsDestination, `$AgentsTemplate, `$Utf8NoBom)
-    Write-Host "Created AGENTS.md"
-} else {
-    Write-Host "Preserved existing AGENTS.md; merge project academic instructions manually if needed."
-}
-
-Write-Host "Project initialization complete: `$ProjectRoot"
-Write-Host "Next: customize AGENTS.md, record the project's real build and analysis commands, and invoke an academic-workflow skill."
-"@
+    $InitTemplate = Get-Content -LiteralPath (Join-Path $PackageRoot "templates\init-project.ps1.template") -Raw -Encoding utf8
+    $InitScript = $InitTemplate.Replace('__SOURCE_ROOT__', $SourceRoot.Replace("'", "''"))
+    $InitScript = $InitScript.Replace('__CORE_TEMPLATES_ROOT__', (Join-Path $UserSkillsPath "academic-workflow-core\assets\templates").Replace("'", "''"))
     Write-Utf8Text -Path (Join-Path $ScriptsPath "init-project.ps1") -Value $InitScript
 
     $SkillText = @'
@@ -507,12 +644,13 @@ description: Initialize the current repository for the global Codex academic wor
 # Initialize an academic project
 
 1. Inspect the repository and identify any existing `AGENTS.md`, document sources, analysis scripts, templates, and build commands.
-2. Run `scripts/init-project.ps1` from this skill directory with the repository root as `-ProjectPath`.
-3. Customize the resulting project `AGENTS.md` with the real project identity, canonical files, commands, and verification criteria.
-4. Inspect the project's actual dependencies and run its real build or analysis checks when available. Report missing optional tools honestly.
-5. Report created files, preserved files, missing dependencies, and the recommended first workflow skill.
+2. Run `scripts/init-project.ps1` from this skill directory with the repository root as `-ProjectPath`. It merges only missing scaffold files and never overwrites existing project files.
+3. Use `-IncludeAutomation` only when the user wants upstream `.github`, `.githooks`, and `.vscode` templates added; inspect them before enabling a Git hook or CI workflow.
+4. Customize the resulting project `AGENTS.md` with the real project identity, canonical files, commands, and verification criteria.
+5. Inspect the project's actual dependencies and run its real build or analysis checks when available. Report missing optional tools honestly.
+6. Report created files, preserved files, missing dependencies, and the recommended first workflow skill.
 
-Do not overwrite existing project directories or instructions automatically.
+The initializer also creates `.codex/academic-workflow.json`. Global academic hooks use this marker to avoid writing logs or project state in unrelated repositories.
 '@
     Write-Utf8Text -Path (Join-Path $SkillPath "SKILL.md") -Value $SkillText
 }
@@ -541,10 +679,13 @@ if (-not $SkipGlobalAgentsBlock) {
 Install-CoreSkill -SourceRoot $ResolvedSource
 Install-ConvertedSkills -SourceRoot $ResolvedSource
 Install-CodexSkillOverrides
+Install-CodexOnlySkills
 Install-ConvertedAgents -SourceRoot $ResolvedSource
 Install-SafetyRules
 Install-ProjectInitializer -SourceRoot $ResolvedSource
 Install-PersonalWorkflowState
+Install-CodexHooks
+Install-CliUiDefaults
 
 $Manifest = [ordered]@{
     installed_at = (Get-Date).ToString("o")
@@ -556,6 +697,9 @@ $Manifest = [ordered]@{
     skills_root = $UserSkillsPath
     agents_root = $GlobalCustomAgentsPath
     rules_file = (Join-Path $GlobalRulesPath "academic-workflow.rules")
+    hooks_root = if ($SkipHooks) { $null } else { $GlobalHooksPath }
+    hooks_config = if ($SkipHooks) { $null } else { $GlobalHooksConfigPath }
+    cli_ui_defaults_installed = (-not $SkipCliUiDefaults)
     personal_memory_file = (Join-Path $CodexHomePath "academic-workflow-state\personal-memory.md")
     backup_root = $BackupPath
 }
@@ -564,4 +708,5 @@ Write-Utf8Text -Path (Join-Path $CodexHomePath "academic-workflow-install.json")
 
 Write-Host "Installed the Codex academic workflow."
 Write-Host "Restart Codex, then invoke `$academic-workflow-init in a target repository."
+if (-not $SkipHooks) { Write-Host "In the Codex CLI, run /hooks and review/trust the five academic workflow hook definitions." }
 if (Test-Path -LiteralPath $BackupPath) { Write-Host "Backups: $BackupPath" }

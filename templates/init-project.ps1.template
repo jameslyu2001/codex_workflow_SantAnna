@@ -1,0 +1,119 @@
+[CmdletBinding()]
+param(
+    [string]$ProjectPath = (Get-Location).Path,
+    [switch]$IncludeAutomation
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+$SourceRoot = '__SOURCE_ROOT__'
+$CoreTemplatesRoot = '__CORE_TEMPLATES_ROOT__'
+$ProjectRoot = (Resolve-Path -LiteralPath $ProjectPath).Path
+$SkillRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+$ProjectScriptsRoot = Join-Path $SkillRoot "assets\project-scripts"
+$Utf8NoBom = New-Object Text.UTF8Encoding($false)
+$Created = New-Object Collections.Generic.List[string]
+$Preserved = New-Object Collections.Generic.List[string]
+
+function Ensure-Directory {
+    param([Parameter(Mandatory)][string]$Path)
+    if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
+        New-Item -ItemType Directory -Path $Path | Out-Null
+        $Created.Add($Path.Substring($ProjectRoot.Length).TrimStart('\'))
+    }
+}
+
+function Copy-MissingFile {
+    param(
+        [Parameter(Mandatory)][string]$Source,
+        [Parameter(Mandatory)][string]$Destination
+    )
+    if (-not (Test-Path -LiteralPath $Source -PathType Leaf)) { return }
+    Ensure-Directory (Split-Path -Parent $Destination)
+    $Relative = $Destination.Substring($ProjectRoot.Length).TrimStart('\')
+    if (Test-Path -LiteralPath $Destination) {
+        $Preserved.Add($Relative)
+    } else {
+        Copy-Item -LiteralPath $Source -Destination $Destination
+        $Created.Add($Relative)
+    }
+}
+
+function Merge-MissingTree {
+    param(
+        [Parameter(Mandatory)][string]$Source,
+        [Parameter(Mandatory)][string]$Destination
+    )
+    if (-not (Test-Path -LiteralPath $Source -PathType Container)) { return }
+    Ensure-Directory $Destination
+    foreach ($Item in Get-ChildItem -LiteralPath $Source -Recurse -Force | Sort-Object FullName) {
+        $Relative = $Item.FullName.Substring($Source.Length).TrimStart([char[]]'\/')
+        $Target = Join-Path $Destination $Relative
+        if ($Item.PSIsContainer) {
+            Ensure-Directory $Target
+        } else {
+            Copy-MissingFile -Source $Item.FullName -Destination $Target
+        }
+    }
+}
+
+# Project directories whose examples are copied only when the whole directory is absent.
+foreach ($Name in @('Preambles', 'Figures', 'Slides', 'Quarto', 'master_supporting_docs')) {
+    $Source = Join-Path $SourceRoot $Name
+    $Destination = Join-Path $ProjectRoot $Name
+    if (-not (Test-Path -LiteralPath $Destination) -and (Test-Path -LiteralPath $Source)) {
+        Copy-Item -LiteralPath $Source -Destination $Destination -Recurse
+        $Created.Add($Name)
+    } elseif (Test-Path -LiteralPath $Destination) {
+        $Preserved.Add($Name)
+    }
+}
+
+Copy-MissingFile -Source (Join-Path $SourceRoot 'Bibliography_base.bib') -Destination (Join-Path $ProjectRoot 'Bibliography_base.bib')
+
+# Adapted templates and the scripts required by installed skills are merged file-by-file.
+Merge-MissingTree -Source $CoreTemplatesRoot -Destination (Join-Path $ProjectRoot 'templates')
+Merge-MissingTree -Source $ProjectScriptsRoot -Destination (Join-Path $ProjectRoot 'scripts')
+Merge-MissingTree -Source (Join-Path $SourceRoot 'scripts\R') -Destination (Join-Path $ProjectRoot 'scripts\R')
+foreach ($Name in @('check-palette-sync.py', 'check-palette-sync.sh', 'check-tikz-prevention.py', 'quality_score.py', 'sync_to_docs.sh')) {
+    Copy-MissingFile -Source (Join-Path $SourceRoot "scripts\$Name") -Destination (Join-Path $ProjectRoot "scripts\$Name")
+}
+
+# Durable evidence directories expected by the skills and global hooks.
+foreach ($Name in @('audits', 'checkpoints', 'decisions', 'diagnoses', 'merges', 'passports', 'plans', 'preregistrations', 'session_logs', 'specs')) {
+    Ensure-Directory (Join-Path $ProjectRoot "quality_reports\$Name")
+}
+Ensure-Directory (Join-Path $ProjectRoot 'explorations\ARCHIVE')
+
+$AgentsDestination = Join-Path $ProjectRoot 'AGENTS.md'
+Copy-MissingFile -Source (Join-Path $SkillRoot 'assets\project-AGENTS.md') -Destination $AgentsDestination
+Copy-MissingFile -Source (Join-Path $SkillRoot 'assets\project-MEMORY.md') -Destination (Join-Path $ProjectRoot 'MEMORY.md')
+
+# This opt-in marker prevents global academic hooks from modifying unrelated repositories.
+$MarkerDirectory = Join-Path $ProjectRoot '.codex'
+Ensure-Directory $MarkerDirectory
+$MarkerPath = Join-Path $MarkerDirectory 'academic-workflow.json'
+if (-not (Test-Path -LiteralPath $MarkerPath -PathType Leaf)) {
+    $Marker = [ordered]@{
+        schema_version = 1
+        workflow = 'codex-academic-workflow'
+        initialized_at = (Get-Date).ToString('o')
+    } | ConvertTo-Json
+    [IO.File]::WriteAllText($MarkerPath, $Marker, $Utf8NoBom)
+    $Created.Add('.codex\academic-workflow.json')
+} else {
+    $Preserved.Add('.codex\academic-workflow.json')
+}
+
+if ($IncludeAutomation) {
+    foreach ($Name in @('.github', '.githooks', '.vscode')) {
+        Merge-MissingTree -Source (Join-Path $SourceRoot $Name) -Destination (Join-Path $ProjectRoot $Name)
+    }
+}
+
+Write-Host "Project initialization complete: $ProjectRoot"
+Write-Host ("Created {0} item(s); preserved {1} existing item(s)." -f $Created.Count, $Preserved.Count)
+if (-not $IncludeAutomation) {
+    Write-Host "Project CI, Git hooks, and editor settings were not installed. Re-run with -IncludeAutomation only after reviewing those templates."
+}
+Write-Host "Next: customize AGENTS.md with real paths and commands, restart/open Codex in this repository, and invoke an academic-workflow skill."

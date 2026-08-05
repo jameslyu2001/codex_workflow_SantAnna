@@ -11,4 +11,6 @@
 - Do not claim that a paper, analysis, replication package, or slide deck is complete until required artifacts exist and proportionate checks pass.
 - Keep project-specific paths, notation, commands, dependencies, thresholds, and style decisions in the repository `AGENTS.md`.
 - Keep machine-specific or personal reusable lessons in `~/.codex/academic-workflow-state/personal-memory.md`; keep project facts in project documentation.
+- In converted workflow skills, treat `<user-input>` as a placeholder and substitute the actual value from the request before running a command; use syntax appropriate to the current operating system.
+- Stateful academic hooks apply only to repositories initialized with `.codex/academic-workflow.json`; they must fail open on internal errors and must not modify unrelated repositories.
 <!-- END academic-workflow -->

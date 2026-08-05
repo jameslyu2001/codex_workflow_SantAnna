@@ -22,6 +22,13 @@ prefix_rule(
 )
 
 prefix_rule(
+    pattern = ["git", "clean", ["-fdx", "-fx", "--force"]],
+    decision = "forbidden",
+    justification = "Inspect untracked and ignored files with git clean -n; delete only explicit targets.",
+    match = ["git clean -fdx", "git clean -fx", "git clean --force"],
+)
+
+prefix_rule(
     pattern = ["git", "push", "--force"],
     decision = "prompt",
     justification = "Force-pushing rewrites remote history and requires explicit confirmation.",
@@ -40,4 +47,25 @@ prefix_rule(
     decision = "prompt",
     justification = "Review and stage an explicit file set so unrelated user changes are not included accidentally.",
     match = ["git add -A"],
+)
+
+prefix_rule(
+    pattern = ["git", "add", ["--all", ".", ":/"]],
+    decision = "prompt",
+    justification = "Review and stage explicit paths so secrets, data, and unrelated work are not included accidentally.",
+    match = ["git add --all", "git add .", "git add :/"],
+)
+
+prefix_rule(
+    pattern = ["git", "checkout", "--", "."],
+    decision = "forbidden",
+    justification = "Mass discard is irreversible. Restore specific files or use git stash to preserve work.",
+    match = ["git checkout -- ."],
+)
+
+prefix_rule(
+    pattern = ["git", "restore", "."],
+    decision = "forbidden",
+    justification = "Mass discard is irreversible. Restore specific files or use git stash to preserve work.",
+    match = ["git restore ."],
 )

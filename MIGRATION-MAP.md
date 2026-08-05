@@ -1,27 +1,42 @@
-# Migration map
+# Claude → Codex migration map
 
 | Upstream component | Codex destination | Treatment |
 |---|---|---|
-| Root `CLAUDE.md` | Global marked `AGENTS.md` block plus project `AGENTS.md` | Split generic behavior from project facts |
-| `.claude/skills/*` | `$HOME/.agents/skills/academic-workflow-*` | Global, namespaced, frontmatter and invocations rewritten |
-| `.claude/agents/*.md` | `~/.codex/agents/academic_*.toml` | Global TOML custom agents |
-| `.claude/rules/*.md` | `academic-workflow-core/references/rules/` | Global on-demand prose references |
-| `.claude/references/*` | `academic-workflow-core/references/upstream/` | Global on-demand references |
-| Git guardrail hook | `~/.codex/rules/academic-workflow.rules` | Reimplemented as native Codex command policy |
-| Permission allow-all configuration | None | Deliberately rejected |
-| Context/status/notification hooks | None | Claude-specific; use Codex-native session and notification behavior |
-| `Preambles`, `templates`, `scripts` | Per-project, installed by `$academic-workflow-init` | Depend on repository contents |
-| `.githooks`, `.github` | Per-project | Version-control and CI enforcement |
-| `MEMORY.md`, project knowledge base | Per-project | Contains project-specific learning and decisions |
-| `quality_reports`, `explorations` | Per-project | Durable project outputs |
+| Root `CLAUDE.md` | Global marked `~/.codex/AGENTS.md` block plus project `AGENTS.md` | Generic behavior is global; project paths, commands and thresholds remain local |
+| 52 `.claude/skills/*` | `~/.agents/skills/academic-workflow-*` | Namespaced, frontmatter reduced to Codex fields, arguments/tools/CLI/path references rewritten |
+| 18 `.claude/agents/*.md` | `~/.codex/agents/academic_*.toml` | Converted to Codex custom-agent TOML with role-appropriate sandbox modes |
+| 32 `.claude/rules/*.md` | `academic-workflow-core/references/rules/` | On-demand global methodological references; not execpolicy files |
+| 9 `.claude/references/*` | `academic-workflow-core/references/upstream/` | On-demand global references with Codex paths and agent names |
+| 2 `.claude/output-styles/*` | `$academic-workflow-style-academic-writing` and `$academic-workflow-style-referee` | Reimplemented as discoverable global Codex skills |
+| Git guardrail hook | `~/.codex/rules/academic-workflow.rules` plus Codex `PreToolUse` hook | Native command policy is primary; hook covers Git global options and academic hardcoded-path warnings |
+| Claim reconciliation hook | Codex `PostToolUse` hook | Parses `apply_patch` input and alerts only in initialized projects |
+| Pre-compact capture | Codex `PreCompact` hook | Stores plan/session state under `~/.codex/academic-workflow-state/sessions` |
+| Post-compact restore | Codex `SessionStart` hook for `compact|resume` | Injects active plan and session-log context after compaction/resume |
+| Session log hook | Codex `Stop` hook | Writes only in projects containing `.codex/academic-workflow.json` |
+| Context percentage hook | Native `context-remaining` status-line item and actual `PreCompact` event | Approximate Claude transcript-size percentages deliberately removed |
+| Claude `statusLine` shell script | Codex `tui.status_line` / `/statusline` | Uses native model, context, branch and directory fields |
+| Claude Notification hook | Codex Desktop/TUI notifications and existing `notify` config | Existing user notification command is preserved |
+| Claude permission allow-all settings | None | Deliberately rejected; Codex sandbox and approvals remain active |
+| Fixed Claude model routing | Codex role-based custom agents | Inherits the configured Codex model unless the user deliberately overrides it |
+| Root `scripts/` | Selected missing files installed per project | R templates, TikZ checks, quality scoring, Windows compile/deploy scripts; Claude self-maintenance scripts excluded |
+| `quality_reports`, `explorations` | Created by `$academic-workflow-init` | Project evidence and provisional work remain project-local |
+| `.github`, `.githooks`, `.vscode` | `$academic-workflow-init -IncludeAutomation` | Opt-in because these files can change CI, commits, and editor behavior |
+| `MEMORY.md` | Project `MEMORY.md` template | Verified project facts only; personal reusable lessons remain global state |
 
-## Behavioral substitutions
+## Invocation and command substitutions
 
-| Claude behavior | Codex behavior |
+| Claude form | Codex form |
 |---|---|
 | `/skill-name` | `$academic-workflow-skill-name` |
-| `Task` with `context: fork` | Spawn an isolated Codex subagent with a narrow task |
-| `.claude/settings.json` permissions | Codex sandbox, approval policy, permission profiles, and `.rules` |
-| `CLAUDE_PROJECT_DIR` | Resolve the current Git root or workspace directory |
-| Fixed Claude model routing | Role-based Codex agents; inherit the user's configured model unless a deliberate override is needed |
-| PreCompact memory script | Codex session persistence/compaction plus durable project reports |
+| `$ARGUMENTS` | `<user-input>` documentation placeholder; substitute the actual prompt value before execution |
+| `claude --continue` | `codex resume --last` |
+| `claude -p` | `codex exec` |
+| `claude mcp add` | `codex mcp add` |
+| `Task`/fixed model names | Bounded Codex subagent using an `academic_*` role |
+| `Glob`, `Grep`, `Read`, `Write`, `Edit`, `Bash`, `Monitor` | Current Codex file, shell, search, background-process, wait, and edit tools |
+| `$CLAUDE_PROJECT_DIR` | Current Git repository root or hook input `cwd` |
+| Claude env flags | `CODEX_ACADEMIC_*` opt-in environment flags |
+
+## Scope rule
+
+Reusable procedures, agents, hook code, references and safety policy are global. Data locations, real build commands, notation, project facts, CI, Git hooks and generated evidence are project-local. This split follows Codex's global/user and repository instruction layers rather than reproducing the upstream template folder verbatim.
