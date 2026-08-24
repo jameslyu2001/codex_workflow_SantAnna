@@ -249,7 +249,7 @@ class Installer:
             converted,
         )
         converted = re.sub(
-            r"\[[^\]]+\]\((academic_[a-z0-9_]+) custom agent\)",
+            r"\[[^\]]+\]\(`?(academic_[a-z0-9_]+)`? custom agent\)",
             lambda match: f"`{match.group(1)}` custom agent",
             converted,
         )
@@ -325,7 +325,7 @@ description: Coordinate rigorous academic work using scoped planning, evidence c
 6. Report unresolved disagreement, missing inputs, unavailable tools, and failed checks honestly.
 7. Save durable review evidence under `quality_reports/` when that convention is present.
 
-Load only the relevant files under `references/` for the current task. Project-specific paths and commands belong in the repository `AGENTS.md`.
+Load `references/codex/folder-organization.md` whenever deciding where to create, move, or save research data, code, figures, tables, temporary files, or documents. Load only other relevant files under `references/` for the current task. Project-specific paths and commands belong in the repository `AGENTS.md`.
 """
         self.write_text(core / "SKILL.md", core_skill)
         self.copy_contents(source / ".claude" / "rules", references / "rules")
@@ -598,7 +598,7 @@ description: Initialize the current repository for the global Codex academic wor
 5. Inspect actual dependencies and run real build or analysis checks when available. Report missing optional tools honestly.
 6. Report created files, preserved files, missing dependencies, and the recommended first workflow skill.
 
-The initializer creates `.codex/academic-workflow.json`. Stateful global academic hooks use this marker so they do not modify unrelated repositories.
+The initializer creates `.codex/academic-workflow.json` and the default `data/source/output` stage mirror plus `temp/` and `documents/`. Stateful global academic hooks use the marker so they do not modify unrelated repositories.
 """
         self.write_text(skill / "SKILL.md", skill_text)
 

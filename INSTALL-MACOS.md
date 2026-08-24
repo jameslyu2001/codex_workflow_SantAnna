@@ -1,4 +1,4 @@
-# macOS 安装与迁移指南（版本 2.1.0）
+# macOS 安装与迁移指南（版本 2.2.0）
 
 本安装器把通用 Codex 学术工作流放入 macOS 用户全局目录。它不依赖 PowerShell，也不会自动修改每个项目；项目级文件仅在显式调用 `$academic-workflow-init` 后创建。
 
@@ -125,7 +125,7 @@ $academic-workflow-init
 python3 "$HOME/.agents/skills/academic-workflow-init/scripts/init-project.py" "/path/to/project"
 ```
 
-初始化器只复制缺失文件，保留已有 `AGENTS.md`、`MEMORY.md`、scripts 和模板。它会创建 `.codex/academic-workflow.json`、完整的 `quality_reports/` 与 `explorations/ARCHIVE`，并补齐工作流需要的项目脚本和示例结构。
+初始化器只复制缺失文件，保留已有 `AGENTS.md`、`MEMORY.md`、scripts 和模板。它会创建 `.codex/academic-workflow.json`、完整的 `quality_reports/` 与 `explorations/ARCHIVE`，补齐工作流需要的项目脚本和示例结构，并创建 `data/{raw,derived,analysis}`、`source/{raw,derived,analysis}`、`output/{raw,derived,analysis}`、`temp/` 与 `documents/`。
 
 如确实希望复制上游 CI、Git hooks 和 VS Code 设置：
 

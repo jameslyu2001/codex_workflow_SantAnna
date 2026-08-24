@@ -1,5 +1,5 @@
 {
-  "version": "2.1.0",
+  "version": "2.2.0",
   "platforms": ["windows", "macos"],
   "upstream_repository": "https://github.com/pedrohcgs/claude-code-my-workflow.git",
   "upstream_commit": "be53c12f235996dff41fb7f21580506fd2dd8d50",

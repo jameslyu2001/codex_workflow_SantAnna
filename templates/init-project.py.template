@@ -94,6 +94,22 @@ def main() -> int:
         ensure_directory(project_root / "quality_reports" / name)
     ensure_directory(project_root / "explorations" / "ARCHIVE")
 
+    # Canonical research data lineage: matching raw, derived, and analysis stages.
+    for name in (
+        "data/raw",
+        "data/derived",
+        "data/analysis",
+        "source/raw",
+        "source/derived",
+        "source/analysis",
+        "output/raw",
+        "output/derived",
+        "output/analysis",
+        "temp",
+        "documents",
+    ):
+        ensure_directory(project_root / name)
+
     copy_missing_file(skill_root / "assets" / "project-AGENTS.md", project_root / "AGENTS.md")
     copy_missing_file(skill_root / "assets" / "project-MEMORY.md", project_root / "MEMORY.md")
 

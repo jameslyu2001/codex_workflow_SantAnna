@@ -85,6 +85,16 @@ foreach ($Name in @('audits', 'checkpoints', 'decisions', 'diagnoses', 'merges',
 }
 Ensure-Directory (Join-Path $ProjectRoot 'explorations\ARCHIVE')
 
+# Canonical research data lineage: matching raw, derived, and analysis stages.
+foreach ($Name in @(
+    'data\raw', 'data\derived', 'data\analysis',
+    'source\raw', 'source\derived', 'source\analysis',
+    'output\raw', 'output\derived', 'output\analysis',
+    'temp', 'documents'
+)) {
+    Ensure-Directory (Join-Path $ProjectRoot $Name)
+}
+
 $AgentsDestination = Join-Path $ProjectRoot 'AGENTS.md'
 Copy-MissingFile -Source (Join-Path $SkillRoot 'assets\project-AGENTS.md') -Destination $AgentsDestination
 Copy-MissingFile -Source (Join-Path $SkillRoot 'assets\project-MEMORY.md') -Destination (Join-Path $ProjectRoot 'MEMORY.md')

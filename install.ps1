@@ -180,7 +180,7 @@ function Convert-ClaudeText {
     )
     $Converted = [regex]::Replace(
         $Converted,
-        '\[[^\]]+\]\((academic_[a-z0-9_]+) custom agent\)',
+        '\[[^\]]+\]\(`?(academic_[a-z0-9_]+)`? custom agent\)',
         { param($Match) '`' + $Match.Groups[1].Value + '` custom agent' }
     )
     $Converted = [regex]::Replace(
@@ -292,7 +292,7 @@ description: Coordinate rigorous academic work using scoped planning, evidence c
 6. Report unresolved disagreement, missing inputs, unavailable tools, and failed checks honestly.
 7. Save durable review evidence under `quality_reports/` when that convention is present.
 
-Load only the relevant files under `references/` for the current task. Project-specific paths and commands belong in the repository `AGENTS.md`.
+Load `references/codex/folder-organization.md` whenever deciding where to create, move, or save research data, code, figures, tables, temporary files, or documents. Load only other relevant files under `references/` for the current task. Project-specific paths and commands belong in the repository `AGENTS.md`.
 '@
     Write-Utf8Text -Path (Join-Path $CorePath "SKILL.md") -Value $CoreSkill
 
@@ -650,7 +650,7 @@ description: Initialize the current repository for the global Codex academic wor
 5. Inspect the project's actual dependencies and run its real build or analysis checks when available. Report missing optional tools honestly.
 6. Report created files, preserved files, missing dependencies, and the recommended first workflow skill.
 
-The initializer also creates `.codex/academic-workflow.json`. Global academic hooks use this marker to avoid writing logs or project state in unrelated repositories.
+The initializer also creates `.codex/academic-workflow.json` and the default `data/source/output` stage mirror plus `temp/` and `documents/`. Global academic hooks use the marker to avoid writing logs or project state in unrelated repositories.
 '@
     Write-Utf8Text -Path (Join-Path $SkillPath "SKILL.md") -Value $SkillText
 }

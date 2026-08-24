@@ -3,6 +3,7 @@
 | Upstream component | Codex destination | Treatment |
 |---|---|---|
 | Root `CLAUDE.md` | Global marked `~/.codex/AGENTS.md` block plus project `AGENTS.md` | Generic behavior is global; project paths, commands and thresholds remain local |
+| User research-folder convention | Global marked `~/.codex/AGENTS.md` block, core reference, and non-overwriting project scaffold | The reusable `raw -> derived -> analysis` routing is global; absolute paths, datasets, retention rules, and exceptions remain project-local |
 | 52 `.claude/skills/*` | `~/.agents/skills/academic-workflow-*` | Namespaced, frontmatter reduced to Codex fields, arguments/tools/CLI/path references rewritten |
 | 18 `.claude/agents/*.md` | `~/.codex/agents/academic_*.toml` | Converted to Codex custom-agent TOML with role-appropriate sandbox modes |
 | 32 `.claude/rules/*.md` | `academic-workflow-core/references/rules/` | On-demand global methodological references; not execpolicy files |
@@ -48,4 +49,4 @@ Both platforms install the same 56 skills, 18 custom agents, five hook groups, g
 
 ## Scope rule
 
-Reusable procedures, agents, hook code, references and safety policy are global. Data locations, real build commands, notation, project facts, CI, Git hooks and generated evidence are project-local. This split follows Codex's global/user and repository instruction layers rather than reproducing the upstream template folder verbatim.
+Reusable procedures, agents, hook code, references, safety policy, and the default research-file routing convention are global. Absolute data locations, named datasets, real build commands, notation, retention policy, project exceptions, CI, Git hooks, and generated evidence are project-local. This split follows Codex's global/user and repository instruction layers rather than reproducing the upstream template folder verbatim.

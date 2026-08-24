@@ -1,4 +1,4 @@
-# Windows 安装与迁移指南（版本 2.1.0）
+# Windows 安装与迁移指南（版本 2.2.0）
 
 本包面向 Windows PowerShell，安装通用 Codex 学术工作流到用户全局目录。项目初始化是显式操作，不会自动改动你打开的每个仓库。
 
@@ -138,6 +138,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $init -ProjectPath "C:\p
 - `.codex\academic-workflow.json` 项目 opt-in 标记
 - `quality_reports` 的计划、审计、checkpoint、passport、session log 等子目录
 - `explorations\ARCHIVE`
+- `data\{raw,derived,analysis}`、`source\{raw,derived,analysis}`、`output\{raw,derived,analysis}`、`temp` 和 `documents`
 - 通用 R 脚本模板、TikZ 检查、质量评分、LaTeX 编译和 Quarto 同步脚本
 - 缺失的 Preambles、Figures、Slides、Quarto 和 supporting-docs 结构
 

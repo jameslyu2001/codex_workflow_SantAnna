@@ -28,6 +28,7 @@ Require-Path (Join-Path $CodexHomePath "AGENTS.md") "global AGENTS.md"
 Require-Path (Join-Path $CodexHomePath "rules\academic-workflow.rules") "global Git safety rules"
 Require-Path (Join-Path $CodexHomePath "agents\academic_methods_referee.toml") "methods referee agent"
 Require-Path (Join-Path $SkillsRoot "academic-workflow-core\SKILL.md") "core workflow skill"
+Require-Path (Join-Path $SkillsRoot "academic-workflow-core\references\codex\folder-organization.md") "research folder-organization reference"
 Require-Path (Join-Path $SkillsRoot "academic-workflow-init\SKILL.md") "project initializer skill"
 Require-Path (Join-Path $SkillsRoot "academic-workflow-review-paper\SKILL.md") "paper review skill"
 Require-Path (Join-Path $SkillsRoot "academic-workflow-style-academic-writing\SKILL.md") "academic writing style skill"
@@ -43,6 +44,12 @@ if (Test-Path -LiteralPath $GlobalAgentsPath -PathType Leaf) {
     $BlockCount = ([regex]::Matches($GlobalAgentsText, '<!-- BEGIN academic-workflow -->')).Count
     if ($BlockCount -eq 1) { Write-Host "PASS  one global academic workflow block" }
     else { Write-Host "FAIL  global academic workflow block count ($BlockCount)"; $Failures.Add("global academic workflow block count") }
+    if ($GlobalAgentsText -match 'data/raw/' -and $GlobalAgentsText -match 'source/raw/' -and $GlobalAgentsText -match 'output/<stage>/') {
+        Write-Host "PASS  global research-file organization guidance"
+    } else {
+        Write-Host "FAIL  global research-file organization guidance"
+        $Failures.Add("global research-file organization guidance")
+    }
 }
 
 $GlobalOverridePath = Join-Path $CodexHomePath "AGENTS.override.md"
@@ -301,6 +308,44 @@ $ParseErrors = $null
 [Management.Automation.Language.Parser]::ParseFile($InitScriptPath, [ref]$Tokens, [ref]$ParseErrors) | Out-Null
 if ($ParseErrors.Count -eq 0) { Write-Host "PASS  project initializer syntax" }
 else { Write-Host "FAIL  project initializer syntax"; $Failures.Add("project initializer syntax") }
+
+if ($ParseErrors.Count -eq 0) {
+    $TempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
+    $InitFixtureRoot = [IO.Path]::GetFullPath((Join-Path $TempBase ("academic-workflow-verify-" + [guid]::NewGuid().ToString('N'))))
+    if (-not $InitFixtureRoot.StartsWith($TempBase, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to create an initializer fixture outside the system temporary directory."
+    }
+    New-Item -ItemType Directory -Path $InitFixtureRoot | Out-Null
+    try {
+        $Sentinel = "preserve-existing-agents"
+        [IO.File]::WriteAllText((Join-Path $InitFixtureRoot 'AGENTS.md'), $Sentinel, (New-Object Text.UTF8Encoding($false)))
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $InitScriptPath -ProjectPath $InitFixtureRoot *> $null
+        $FirstExitCode = $LASTEXITCODE
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $InitScriptPath -ProjectPath $InitFixtureRoot *> $null
+        $SecondExitCode = $LASTEXITCODE
+        $RequiredResearchDirectories = @(
+            'data\raw', 'data\derived', 'data\analysis',
+            'source\raw', 'source\derived', 'source\analysis',
+            'output\raw', 'output\derived', 'output\analysis',
+            'temp', 'documents'
+        )
+        $MissingResearchDirectories = @($RequiredResearchDirectories | Where-Object {
+            -not (Test-Path -LiteralPath (Join-Path $InitFixtureRoot $_) -PathType Container)
+        })
+        $SentinelPreserved = (Get-Content -LiteralPath (Join-Path $InitFixtureRoot 'AGENTS.md') -Raw -Encoding utf8) -eq $Sentinel
+        if ($FirstExitCode -eq 0 -and $SecondExitCode -eq 0 -and $MissingResearchDirectories.Count -eq 0 -and $SentinelPreserved) {
+            Write-Host "PASS  project initializer folder scaffold, preservation, and idempotence"
+        } else {
+            Write-Host "FAIL  project initializer folder scaffold, preservation, and idempotence"
+            $Failures.Add("project initializer folder scaffold, preservation, and idempotence")
+        }
+    } finally {
+        $ResolvedFixture = [IO.Path]::GetFullPath($InitFixtureRoot)
+        if ($ResolvedFixture.StartsWith($TempBase, [StringComparison]::OrdinalIgnoreCase) -and (Split-Path -Leaf $ResolvedFixture) -like 'academic-workflow-verify-*') {
+            Remove-Item -LiteralPath $ResolvedFixture -Recurse -Force
+        }
+    }
+}
 
 foreach ($ProjectScriptName in @('compile-latex.ps1', 'sync-to-docs.ps1')) {
     $ProjectScriptPath = Join-Path $SkillsRoot "academic-workflow-init\assets\project-scripts\$ProjectScriptName"

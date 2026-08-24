@@ -22,6 +22,10 @@
 | Verified project knowledge | repository `MEMORY.md` and project documentation |
 | Personal reusable lessons | `~/.codex/academic-workflow-state/personal-memory.md` |
 
+## Default research-file pipeline
+
+Use matching `raw`, `derived`, and `analysis` stages across `data/`, `source/`, and `output/`. Keep original inputs in `data/raw/`, intermediate data in `data/derived/`, analysis-ready data in `data/analysis/`, stage-specific code in `source/<stage>/`, and non-data products in `output/<stage>/`. Use `temp/` only for disposable files and `documents/` for research prose. See `references/codex/folder-organization.md` for the routing table and exceptions.
+
 ## Project opt-in
 
 Run `$academic-workflow-init` once in an academic repository. It creates `.codex/academic-workflow.json`; stateful global hooks no-op when that marker is absent.

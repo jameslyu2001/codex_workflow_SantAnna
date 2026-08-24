@@ -2,7 +2,7 @@
 
 这是 [`pedrohcgs/claude-code-my-workflow`](https://github.com/pedrohcgs/claude-code-my-workflow) 的 Codex 原生移植版。安装后，通用能力位于用户全局目录，可在任意项目使用；项目路径、命令、数据约束和研究事实仍保留在各项目中。
 
-当前版本：`2.1.0`
+当前版本：`2.2.0`
 
 锁定上游提交：`be53c12f235996dff41fb7f21580506fd2dd8d50`
 
@@ -12,6 +12,7 @@
 - 18 个全局 custom agents
 - 5 组 Codex lifecycle hooks：Git/路径防护、claim provenance、压缩前保存、压缩后恢复、自动 session log
 - 全局 `AGENTS.md` 工作规范和 Codex execpolicy 安全规则
+- 全局研究文件组织规范：`raw -> derived -> analysis` 数据血缘、镜像的 `data/source/output` 阶段目录、`temp` 与 `documents` 边界
 - Codex CLI 原生 status line 默认项；已有个人 `status_line` 时保持不变
 - Windows PowerShell 与 macOS Bash/Python 项目初始化、LaTeX 编译和 Quarto 同步脚本
 - 不覆盖现有文件的项目初始化器
@@ -47,6 +48,8 @@ bash ./verify-install-macos.sh
 重新启动 Codex，在 CLI 中用 `/hooks` 审查并信任 5 组 hook，再在目标项目调用 `$academic-workflow-init`。
 
 初始化会创建 `.codex/academic-workflow.json`。会写入项目状态的全局 hooks 仅在存在该标记时运行；Git 安全防护仍作为全局保护运行。
+
+初始化器还会以不覆盖现有内容的方式创建 `data/{raw,derived,analysis}`、`source/{raw,derived,analysis}`、`output/{raw,derived,analysis}`、`temp/` 与 `documents/`。数据处理代码进入 `source/<stage>/`；`scripts/` 保留给编译、验证、部署等仓库基础设施。
 
 ## 全局位置
 

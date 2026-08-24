@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -89,6 +90,10 @@ class Verifier:
                 self.passed("one global academic workflow block")
             else:
                 self.fail("global academic workflow block count")
+            if all(token in text for token in ("data/raw/", "source/raw/", "output/<stage>/")):
+                self.passed("global research-file organization guidance")
+            else:
+                self.fail("global research-file organization guidance")
 
         skill_directories = sorted(self.skills_root.glob("academic-workflow-*"))
         expected_skills = int(self.release.get("expected_skills", 56))
@@ -156,6 +161,14 @@ class Verifier:
         rules_file = self.codex_home / "rules" / "academic-workflow.rules"
         self.require_file(rules_file, "global Git safety rules")
         self.require_file(self.codex_home / "academic-workflow-state" / "personal-memory.md", "personal workflow memory")
+        self.require_file(
+            self.skills_root
+            / "academic-workflow-core"
+            / "references"
+            / "codex"
+            / "folder-organization.md",
+            "research folder-organization reference",
+        )
         self.require_file(
             self.skills_root / "academic-workflow-init" / "scripts" / "init-project.py",
             "macOS project initializer",
@@ -225,6 +238,44 @@ class Verifier:
                 self.passed("macOS project initializer syntax")
             except SyntaxError as exc:
                 self.fail(f"macOS project initializer syntax: {exc}")
+            with tempfile.TemporaryDirectory(prefix="academic-workflow-verify-") as fixture_name:
+                fixture = Path(fixture_name)
+                sentinel = "preserve-existing-agents"
+                (fixture / "AGENTS.md").write_text(sentinel, encoding="utf-8")
+                first = subprocess.run(
+                    [sys.executable, str(init_script), str(fixture)],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                second = subprocess.run(
+                    [sys.executable, str(init_script), str(fixture)],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                required_directories = (
+                    "data/raw",
+                    "data/derived",
+                    "data/analysis",
+                    "source/raw",
+                    "source/derived",
+                    "source/analysis",
+                    "output/raw",
+                    "output/derived",
+                    "output/analysis",
+                    "temp",
+                    "documents",
+                )
+                missing = [name for name in required_directories if not (fixture / name).is_dir()]
+                preserved = (fixture / "AGENTS.md").read_text(encoding="utf-8") == sentinel
+                if first.returncode == 0 and second.returncode == 0 and not missing and preserved:
+                    self.passed("project initializer folder scaffold, preservation, and idempotence")
+                else:
+                    self.fail(
+                        "project initializer folder scaffold, preservation, and idempotence: "
+                        f"first={first.returncode}, second={second.returncode}, missing={missing}, preserved={preserved}"
+                    )
         bash = shutil.which("bash")
         if platform.system() == "Darwin" and bash:
             for script in (
