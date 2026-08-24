@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+"""Initialize an academic project on macOS without overwriting existing files."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import shutil
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+SOURCE_ROOT = Path(__SOURCE_ROOT_JSON__)
+CORE_TEMPLATES_ROOT = Path(__CORE_TEMPLATES_ROOT_JSON__)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("project_path", nargs="?", default=".")
+    parser.add_argument("--include-automation", action="store_true")
+    args = parser.parse_args()
+
+    project_root = Path(args.project_path).expanduser().resolve()
+    if not project_root.is_dir():
+        raise SystemExit(f"Project directory does not exist: {project_root}")
+    skill_root = Path(__file__).resolve().parents[1]
+    project_scripts_root = skill_root / "assets" / "project-scripts"
+    created: list[str] = []
+    preserved: list[str] = []
+
+    def relative(path: Path) -> str:
+        return path.relative_to(project_root).as_posix()
+
+    def ensure_directory(path: Path) -> None:
+        if not path.is_dir():
+            path.mkdir(parents=True, exist_ok=True)
+            created.append(relative(path))
+
+    def copy_missing_file(source: Path, destination: Path) -> None:
+        if not source.is_file():
+            return
+        ensure_directory(destination.parent)
+        if destination.exists():
+            preserved.append(relative(destination))
+            return
+        shutil.copy2(source, destination)
+        created.append(relative(destination))
+
+    def merge_missing_tree(source: Path, destination: Path) -> None:
+        if not source.is_dir():
+            return
+        ensure_directory(destination)
+        for item in sorted(source.rglob("*"), key=lambda path: path.as_posix()):
+            target = destination / item.relative_to(source)
+            if item.is_dir():
+                ensure_directory(target)
+            elif item.is_file():
+                copy_missing_file(item, target)
+
+    for name in ("Preambles", "Figures", "Slides", "Quarto", "master_supporting_docs"):
+        source = SOURCE_ROOT / name
+        destination = project_root / name
+        if not destination.exists() and source.exists():
+            shutil.copytree(source, destination)
+            created.append(name)
+        elif destination.exists():
+            preserved.append(name)
+
+    copy_missing_file(SOURCE_ROOT / "Bibliography_base.bib", project_root / "Bibliography_base.bib")
+    merge_missing_tree(CORE_TEMPLATES_ROOT, project_root / "templates")
+    merge_missing_tree(project_scripts_root, project_root / "scripts")
+    merge_missing_tree(SOURCE_ROOT / "scripts" / "R", project_root / "scripts" / "R")
+    for name in (
+        "check-palette-sync.py",
+        "check-palette-sync.sh",
+        "check-tikz-prevention.py",
+        "quality_score.py",
+        "sync_to_docs.sh",
+    ):
+        copy_missing_file(SOURCE_ROOT / "scripts" / name, project_root / "scripts" / name)
+
+    for name in (
+        "audits",
+        "checkpoints",
+        "decisions",
+        "diagnoses",
+        "merges",
+        "passports",
+        "plans",
+        "preregistrations",
+        "session_logs",
+        "specs",
+    ):
+        ensure_directory(project_root / "quality_reports" / name)
+    ensure_directory(project_root / "explorations" / "ARCHIVE")
+
+    copy_missing_file(skill_root / "assets" / "project-AGENTS.md", project_root / "AGENTS.md")
+    copy_missing_file(skill_root / "assets" / "project-MEMORY.md", project_root / "MEMORY.md")
+
+    marker_directory = project_root / ".codex"
+    ensure_directory(marker_directory)
+    marker_path = marker_directory / "academic-workflow.json"
+    if marker_path.exists():
+        preserved.append(".codex/academic-workflow.json")
+    else:
+        marker = {
+            "schema_version": 1,
+            "workflow": "codex-academic-workflow",
+            "initialized_at": datetime.now(timezone.utc).isoformat(),
+        }
+        marker_path.write_text(json.dumps(marker, indent=2) + "\n", encoding="utf-8")
+        created.append(".codex/academic-workflow.json")
+
+    if args.include_automation:
+        for name in (".github", ".githooks", ".vscode"):
+            merge_missing_tree(SOURCE_ROOT / name, project_root / name)
+
+    print(f"Project initialization complete: {project_root}")
+    print(f"Created {len(created)} item(s); preserved {len(preserved)} existing item(s).")
+    if not args.include_automation:
+        print(
+            "Project CI, Git hooks, and editor settings were not installed. "
+            "Re-run with --include-automation only after reviewing those templates."
+        )
+    print(
+        "Next: customize AGENTS.md with real paths and commands, restart/open Codex "
+        "in this repository, and invoke an academic-workflow skill."
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

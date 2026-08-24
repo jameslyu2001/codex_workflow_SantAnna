@@ -1,6 +1,6 @@
 # Codex workflow parity audit
 
-Audit date: 2026-08-05
+Audit date: 2026-08-24
 
 Upstream repository: `pedrohcgs/claude-code-my-workflow`
 
@@ -30,9 +30,16 @@ Audited upstream commit: `be53c12f235996dff41fb7f21580506fd2dd8d50`
 - Project CI, Git hooks and VS Code settings are opt-in through `-IncludeAutomation`; installing them silently would exceed global workflow scope.
 - Upstream project facts and historical `MEMORY.md` entries are not made global. A clean project-memory template is used instead.
 
+## Version 2.1.0 follow-up
+
+| Severity | Finding | Impact | Resolution |
+|---|---|---|---|
+| Moderate | The 2.0.0 installer added `additionalContextLimit` to `PreCompact` and `Stop`, although those events cannot emit `additionalContext` | Codex emitted an ignore warning at startup; hook execution itself continued | The field is now emitted only for `PreToolUse`, `PostToolUse`, and `SessionStart`; both platform verifiers reject it on `PreCompact` and `Stop` |
+| Major | The distribution had no native macOS installer or macOS-specific project commands | A Mac required manual translation or PowerShell and could install Windows-only skill overrides | Added `install-macos.sh`, a Python installer/verifier, a non-overwriting Python project initializer, Bash LaTeX/Quarto scripts, and macOS-specific skill overrides |
+
 ## Verification criteria
 
-Version 2.0.0 is release-ready only when all of the following pass:
+Version 2.1.0 is release-ready only when all of the following pass:
 
 - PowerShell and Python syntax checks
 - 56 skill folder/frontmatter checks and official skill validation
@@ -42,6 +49,18 @@ Version 2.0.0 is release-ready only when all of the following pass:
 - execpolicy inline and representative command tests
 - disposable-project initialization, preservation, and idempotence tests
 - full local install followed by `verify-install.ps1`
+- isolated macOS-layout install followed by `verify-install-macos.sh`/its Python verifier
+- macOS project initialization preservation and second-run idempotence
+- Bash syntax checks for both one-click entry points and both project scripts
 - E-drive package hash parity and GitHub remote commit parity
 
-The release verification section should be read together with the actual command output from the release process; missing optional academic software is not reported as successful functionality.
+The macOS installer logic and Bash syntax can be checked off-platform, but final native execution must still be performed on a real Mac. Missing optional academic software is never reported as successful functionality.
+
+### 2026-08-24 verification outcome
+
+- Windows 2.1.0 isolated installation and real global installation passed `verify-install.ps1`.
+- macOS-layout isolated installation produced 56 skills, 18 agents, five hook groups and passed `verify_install_macos.py`; a second installation kept one global AGENTS block.
+- Official Codex skill validation passed 56/56 skills on both platform layouts.
+- The macOS project initializer preserved three existing fixture files and was idempotent on its second run.
+- All four Bash files passed `bash -n`; fixture tools confirmed three XeLaTeX passes, conditional BibTeX, Quarto rendering and `docs/` synchronization control flow.
+- A real macOS machine was not available during this audit, so native macOS Codex discovery, hook trust and installed academic binaries remain the final machine-level acceptance check.

@@ -538,11 +538,11 @@ function Install-CodexHooks {
     $PosixRoot = '$HOME/.codex/hooks/academic-workflow'
 
     $Definitions = @(
-        [pscustomobject]@{ Event = 'PreToolUse'; Matcher = '^(Bash|apply_patch|Edit|Write)$'; Script = 'git_guardrails.py'; Status = 'Checking academic workflow guardrails'; Timeout = 10 },
-        [pscustomobject]@{ Event = 'PostToolUse'; Matcher = '^(apply_patch|Edit|Write)$'; Script = 'claim_reconcile.py'; Status = 'Checking tracked claim provenance'; Timeout = 10 },
-        [pscustomobject]@{ Event = 'PreCompact'; Matcher = '^(manual|auto)$'; Script = 'pre_compact.py'; Status = 'Saving academic workflow state'; Timeout = 10 },
-        [pscustomobject]@{ Event = 'SessionStart'; Matcher = '^(compact|resume)$'; Script = 'post_compact_restore.py'; Status = 'Restoring academic workflow state'; Timeout = 10 },
-        [pscustomobject]@{ Event = 'Stop'; Matcher = $null; Script = 'session_log.py'; Status = 'Updating the academic session log'; Timeout = 15 }
+        [pscustomobject]@{ Event = 'PreToolUse'; Matcher = '^(Bash|apply_patch|Edit|Write)$'; Script = 'git_guardrails.py'; Status = 'Checking academic workflow guardrails'; Timeout = 10; AllowsAdditionalContext = $true },
+        [pscustomobject]@{ Event = 'PostToolUse'; Matcher = '^(apply_patch|Edit|Write)$'; Script = 'claim_reconcile.py'; Status = 'Checking tracked claim provenance'; Timeout = 10; AllowsAdditionalContext = $true },
+        [pscustomobject]@{ Event = 'PreCompact'; Matcher = '^(manual|auto)$'; Script = 'pre_compact.py'; Status = 'Saving academic workflow state'; Timeout = 10; AllowsAdditionalContext = $false },
+        [pscustomobject]@{ Event = 'SessionStart'; Matcher = '^(compact|resume)$'; Script = 'post_compact_restore.py'; Status = 'Restoring academic workflow state'; Timeout = 10; AllowsAdditionalContext = $true },
+        [pscustomobject]@{ Event = 'Stop'; Matcher = $null; Script = 'session_log.py'; Status = 'Updating the academic session log'; Timeout = 15; AllowsAdditionalContext = $false }
     )
 
     foreach ($Definition in $Definitions) {
@@ -553,8 +553,8 @@ function Install-CodexHooks {
             commandWindows = $PythonCommand + ' "' + $ScriptPath + '"'
             timeout = $Definition.Timeout
             statusMessage = $Definition.Status
-            additionalContextLimit = 2500
         }
+        if ($Definition.AllowsAdditionalContext) { $Handler.additionalContextLimit = 2500 }
         $Group = [ordered]@{ hooks = @([pscustomobject]$Handler) }
         if ($Definition.Matcher) { $Group = [ordered]@{ matcher = $Definition.Matcher; hooks = @([pscustomobject]$Handler) } }
 

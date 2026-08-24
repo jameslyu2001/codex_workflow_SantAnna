@@ -198,6 +198,44 @@ if ($ManifestHooksConfig) {
             $ExpectedHookGroups = if ($Release -and $Release.PSObject.Properties.Name -contains 'expected_hook_groups') { [int]$Release.expected_hook_groups } else { 5 }
             if ($AcademicHookGroups -eq $ExpectedHookGroups) { Write-Host "PASS  Codex academic hook groups ($ExpectedHookGroups)" }
             else { Write-Host "FAIL  Codex academic hook groups ($AcademicHookGroups/$ExpectedHookGroups)"; $Failures.Add("Codex academic hook groups") }
+
+            $ContextCapableEvents = @('PreToolUse', 'PostToolUse', 'SessionStart')
+            $NonContextEvents = @('PreCompact', 'Stop')
+            foreach ($Event in $ContextCapableEvents) {
+                foreach ($Group in @($HooksConfig.hooks.$Event)) {
+                    foreach ($Handler in @($Group.hooks)) {
+                        $CommandParts = @()
+                        foreach ($CommandPropertyName in @('command', 'commandWindows', 'command_windows')) {
+                            $CommandProperty = $Handler.PSObject.Properties[$CommandPropertyName]
+                            if ($CommandProperty -and $CommandProperty.Value) { $CommandParts += [string]$CommandProperty.Value }
+                        }
+                        $CommandText = $CommandParts -join ' '
+                        if ($CommandText -notmatch '[\\/]academic-workflow[\\/]') { continue }
+                        if (-not $Handler.PSObject.Properties['additionalContextLimit']) {
+                            $Failures.Add("missing additionalContextLimit for $Event academic hook")
+                        }
+                    }
+                }
+            }
+            foreach ($Event in $NonContextEvents) {
+                foreach ($Group in @($HooksConfig.hooks.$Event)) {
+                    foreach ($Handler in @($Group.hooks)) {
+                        $CommandParts = @()
+                        foreach ($CommandPropertyName in @('command', 'commandWindows', 'command_windows')) {
+                            $CommandProperty = $Handler.PSObject.Properties[$CommandPropertyName]
+                            if ($CommandProperty -and $CommandProperty.Value) { $CommandParts += [string]$CommandProperty.Value }
+                        }
+                        $CommandText = $CommandParts -join ' '
+                        if ($CommandText -notmatch '[\\/]academic-workflow[\\/]') { continue }
+                        if ($Handler.PSObject.Properties['additionalContextLimit']) {
+                            $Failures.Add("unsupported additionalContextLimit for $Event academic hook")
+                        }
+                    }
+                }
+            }
+            if (-not ($Failures | Where-Object { $_ -like '*additionalContextLimit*' })) {
+                Write-Host 'PASS  hook additionalContextLimit event compatibility'
+            }
         } catch {
             Write-Host "FAIL  Codex hook JSON parse"
             $Failures.Add("Codex hook JSON parse")
