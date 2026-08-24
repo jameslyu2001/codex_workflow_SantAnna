@@ -18,7 +18,7 @@
 | Claude Notification hook | Codex Desktop/TUI notifications and existing `notify` config | Existing user notification command is preserved |
 | Claude permission allow-all settings | None | Deliberately rejected; Codex sandbox and approvals remain active |
 | Fixed Claude model routing | Codex role-based custom agents | Inherits the configured Codex model unless the user deliberately overrides it |
-| Root `scripts/` | Selected missing files installed per project | R templates, TikZ checks, quality scoring, Windows compile/deploy scripts; Claude self-maintenance scripts excluded |
+| Root `scripts/` | Selected missing files installed per project | R templates, TikZ checks, quality scoring, Windows PowerShell and macOS Bash compile/deploy scripts; Claude self-maintenance scripts excluded |
 | `quality_reports`, `explorations` | Created by `$academic-workflow-init` | Project evidence and provisional work remain project-local |
 | `.github`, `.githooks`, `.vscode` | `$academic-workflow-init -IncludeAutomation` | Opt-in because these files can change CI, commits, and editor behavior |
 | `MEMORY.md` | Project `MEMORY.md` template | Verified project facts only; personal reusable lessons remain global state |
@@ -36,6 +36,15 @@
 | `Glob`, `Grep`, `Read`, `Write`, `Edit`, `Bash`, `Monitor` | Current Codex file, shell, search, background-process, wait, and edit tools |
 | `$CLAUDE_PROJECT_DIR` | Current Git repository root or hook input `cwd` |
 | Claude env flags | `CODEX_ACADEMIC_*` opt-in environment flags |
+
+## Platform entry points
+
+| Platform | One-click installer | Verification | Project initializer |
+|---|---|---|---|
+| Windows | `install.ps1` | `verify-install.ps1` | `init-project.ps1` |
+| macOS | `install-macos.sh` → `scripts/install_macos.py` | `verify-install-macos.sh` | `init-project.py` |
+
+Both platforms install the same 56 skills, 18 custom agents, five hook groups, global guidance, rules, and personal state. Only OS-facing commands and project scripts differ.
 
 ## Scope rule
 

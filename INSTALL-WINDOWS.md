@@ -1,4 +1,4 @@
-# Windows 安装与迁移指南
+# Windows 安装与迁移指南（版本 2.1.0）
 
 本包面向 Windows PowerShell，安装通用 Codex 学术工作流到用户全局目录。项目初始化是显式操作，不会自动改动你打开的每个仓库。
 
@@ -85,7 +85,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\verify-install.ps1"
 主要预期：
 
 ```text
-PASS  package version 2.0.0
+PASS  package version 2.1.0
 INFO  converted skills: 56
 INFO  converted agents: 18
 PASS  Codex hook configuration
@@ -229,6 +229,8 @@ git config --show-origin --get-regexp proxy
 4. 确认 Python 3 可运行。
 5. 对 session log、claim reconciliation 和 compaction state，确认项目含 `.codex\academic-workflow.json`。
 6. 检查 `config.toml` 中是否设置了 `[features] hooks = false`。
+
+`PreCompact` 和 `Stop` 不支持 `additionalContextLimit`。2.1.0 起安装器不会为这两个事件写入该字段；如果看到相关 warning，请更新本仓库后重新运行安装器。事件字段以 [OpenAI Codex Hooks 官方文档](https://developers.openai.com/codex/hooks/) 为准。
 
 ### 全局 AGENTS.md 没有效果
 
