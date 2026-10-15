@@ -10,7 +10,7 @@
 - Git
 - PowerShell 5.1 或 PowerShell 7
 - Python 3，用于 Codex lifecycle hooks
-- GitHub CLI `gh`，用于克隆当前私有仓库
+- GitHub CLI `gh`，用于下方克隆命令；也可直接使用 Git 克隆
 
 检查：
 
@@ -30,15 +30,15 @@ R、Stata、XeLaTeX、Quarto、Pandoc 和 LaTeX 包仅在对应工作流中需�
 ```powershell
 gh auth login
 Set-Location "$HOME\Documents"
-gh repo clone jameslyu2001/workflow_codex
-Set-Location ".\workflow_codex"
+gh repo clone jameslyu2001/codex_workflow_SantAnna
+Set-Location ".\codex_workflow_SantAnna"
 ```
 
-仓库是私有仓库，因此使用的 GitHub 账号必须拥有访问权限。
+本仓库公开可读，也可以直接运行 `git clone https://github.com/jameslyu2001/codex_workflow_SantAnna.git`，无需登录 GitHub。
 
 ### ZIP
 
-登录 GitHub 后打开仓库页面，选择 **Code → Download ZIP**，解压后在 PowerShell 中进入包含 `install.ps1` 的目录。
+打开仓库页面，选择 **Code → Download ZIP**，解压后在 PowerShell 中进入包含 `install.ps1` 的目录。
 
 ## 3. 安装
 
@@ -185,7 +185,7 @@ be53c12f235996dff41fb7f21580506fd2dd8d50
 ## 9. 更新
 
 ```powershell
-Set-Location "$HOME\Documents\workflow_codex"
+Set-Location "$HOME\Documents\codex_workflow_SantAnna"
 git pull
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\install.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\verify-install.ps1"
@@ -203,14 +203,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\verify-install.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\install.ps1"
 ```
 
-### 私有仓库无法克隆
+### GitHub CLI 无法克隆
 
 ```powershell
 gh auth status
 gh auth login
 ```
 
-确认登录账号对 `jameslyu2001/workflow_codex` 有访问权限。
+本仓库公开可读。若 `gh` 登录异常，可直接使用 `git clone https://github.com/jameslyu2001/codex_workflow_SantAnna.git`。
 
 ### GitHub 代理指向不可用的 127.0.0.1
 

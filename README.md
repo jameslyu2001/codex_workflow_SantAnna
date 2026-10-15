@@ -1,4 +1,4 @@
-# Codex Academic Workflow for Windows and macOS
+# Codex Workflow SantAnna for Windows and macOS
 
 这是 [`pedrohcgs/claude-code-my-workflow`](https://github.com/pedrohcgs/claude-code-my-workflow) 的 Codex 原生移植版。安装后，通用能力位于用户全局目录，可在任意项目使用；项目路径、命令、数据约束和研究事实仍保留在各项目中。
 
@@ -23,8 +23,8 @@
 
 ```powershell
 gh auth login
-gh repo clone jameslyu2001/workflow_codex
-Set-Location ".\workflow_codex"
+gh repo clone jameslyu2001/codex_workflow_SantAnna
+Set-Location ".\codex_workflow_SantAnna"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\install.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\verify-install.ps1"
 ```
@@ -39,8 +39,8 @@ $academic-workflow-init
 
 ```bash
 gh auth login
-gh repo clone jameslyu2001/workflow_codex
-cd workflow_codex
+gh repo clone jameslyu2001/codex_workflow_SantAnna
+cd codex_workflow_SantAnna
 bash ./install-macos.sh
 bash ./verify-install-macos.sh
 ```

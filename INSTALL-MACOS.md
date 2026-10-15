@@ -10,7 +10,7 @@
 - Git
 - Bash（macOS 自带）
 - Python 3.9 或更高版本，用于安装器、项目初始化器和 lifecycle hooks
-- GitHub CLI `gh`，用于克隆当前私有仓库
+- GitHub CLI `gh`，用于下方克隆命令；也可直接使用 Git 克隆
 
 建议先检查：
 
@@ -34,11 +34,11 @@ R、Stata、MacTeX/XeLaTeX、Quarto、Pandoc 和具体 LaTeX 包只在相应工�
 ```bash
 gh auth login
 cd "$HOME/Documents"
-gh repo clone jameslyu2001/workflow_codex
-cd workflow_codex
+gh repo clone jameslyu2001/codex_workflow_SantAnna
+cd codex_workflow_SantAnna
 ```
 
-仓库为私有仓库，登录账号必须拥有访问权限。也可以从 GitHub 下载 ZIP，解压后进入包含 `install-macos.sh` 的目录。
+本仓库公开可读，也可直接运行 `git clone https://github.com/jameslyu2001/codex_workflow_SantAnna.git`，无需登录 GitHub。也可以从 GitHub 下载 ZIP，解压后进入包含 `install-macos.sh` 的目录。
 
 ## 3. 一键安装
 
@@ -182,7 +182,7 @@ be53c12f235996dff41fb7f21580506fd2dd8d50
 ## 10. 更新
 
 ```bash
-cd "$HOME/Documents/workflow_codex"
+cd "$HOME/Documents/codex_workflow_SantAnna"
 git pull --ff-only
 bash ./install-macos.sh
 bash ./verify-install-macos.sh
@@ -199,12 +199,14 @@ brew install python
 python3 --version
 ```
 
-### 私有仓库无法克隆
+### GitHub CLI 无法克隆
 
 ```bash
 gh auth status
 gh auth login
 ```
+
+本仓库公开可读。若 `gh` 登录异常，可直接使用 `git clone https://github.com/jameslyu2001/codex_workflow_SantAnna.git`。
 
 ### Hooks 未运行
 
